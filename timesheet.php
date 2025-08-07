@@ -25,111 +25,100 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $form_data = $_POST;
 
     try {
-        // --- Handle Calculation Request ---
-        if (isset($_POST['calculate'])) {
-            $empid = $_POST['empid'];
-            $shift_month = $_POST['shift_month'];
-            $shift_year = $_POST['shift_year'];
-            
-            // Check for existing record
-            $stmt_check = $conn->prepare("SELECT SalaryID FROM SalaryCal_Table WHERE EMPID = ? AND Shift_Month = ? AND shift_year = ?");
-            $stmt_check->bind_param("sii", $empid, $shift_month, $shift_year);
-            $stmt_check->execute();
-            if ($stmt_check->get_result()->num_rows > 0) {
-                throw new Exception("A salary record for this employee for the selected month and year already exists.");
-            }
-
-            // --- Start Calculations ---
-            $working_days = (int)$_POST['working_days'];
-            $days_attended = (float)$_POST['days_attended'];
-            $overtime = (float)$_POST['overtime'];
-            $festival_days = (float)$_POST['festival_days'];
-            $advances_deductions = (float)$_POST['advances_deductions'];
-
-            // Fetch employee details including designation
-            $stmt_emp = $conn->prepare("SELECT e.Name, e.salary, e.salType, w.govt_salary FROM EmployeeBasicDetails e JOIN Wages w ON e.Designation = w.Designation WHERE e.EMPID = ?");
-            $stmt_emp->bind_param("s", $empid);
-            $stmt_emp->execute();
-            $emp_details = $stmt_emp->get_result()->fetch_assoc();
-
-            if (!$emp_details) {
-                throw new Exception("Employee not found or designation not linked correctly.");
-            }
-
-            $salary = (float)$emp_details['salary'];
-            $sal_type = $emp_details['salType'];
-            $total_per_month = (float)$emp_details['govt_salary'];
-
-            // Calculate Day Rate
-            $day_rate = 0;
-            if (strtolower($sal_type) == "daily") {
-                $day_rate = $salary;
-            } elseif (strtolower($sal_type) == "monthly" && $working_days > 0) {
-                $day_rate = $salary / $working_days;
-            }
-
-            // Perform all new calculations
-            $hra_per_month = ($total_per_month / 100) * 40;
-            $basic_per_month = ($total_per_month / 100) * 60;
-            $holidays_earnings = ($working_days > 0) ? ($total_per_month / $working_days) * $festival_days : 0;
-            $basic_earned_per_month = ($working_days > 0) ? ($basic_per_month / $working_days) * ($days_attended + $festival_days) : 0;
-            $hra_earned_per_month = ($working_days > 0) ? ($hra_per_month / $working_days) * ($days_attended + $festival_days) : 0;
-            $overtime_earnings = ($working_days > 0) ? ($total_per_month / $working_days) * ($overtime / 4) : 0;
-            
-            $total_shift = $days_attended + $festival_days + ($overtime / 4);
-            $actual_earnings = $day_rate * $total_shift;
-            
-            $total_earnings = $basic_earned_per_month + $hra_earned_per_month + $holidays_earnings + $overtime_earnings;
-
-            $esi_deductions = ($total_earnings / 100) * 0.75;
-            $epf_deductions = ($basic_earned_per_month / 100) * 12;
-            $total_deductions = $advances_deductions + $epf_deductions + $esi_deductions;
-            
-            $net_payable = $total_earnings - $total_deductions;
-            $actual_paid = $actual_earnings - $net_payable; // As per formula
-            
-            $salary_id = "SAL" . substr($shift_year, -2) . str_pad($shift_month, 2, '0', STR_PAD_LEFT) . strtoupper(substr($empid, 0, 4));
-
-            // Store all results for display and saving
-            $calculated_results = compact(
-                'day_rate', 'total_shift', 'total_earnings', 'net_payable', 'salary_id',
-                'hra_per_month', 'basic_per_month', 'total_per_month', 'holidays_earnings',
-                'basic_earned_per_month', 'hra_earned_per_month', 'actual_earnings',
-                'esi_deductions', 'epf_deductions', 'total_deductions', 'actual_paid'
-            );
+        $empid = $_POST['empid'];
+        $shift_month = $_POST['shift_month'];
+        $shift_year = $_POST['shift_year'];
+        
+        // --- Check for existing record BEFORE calculating ---
+        $stmt_check = $conn->prepare("SELECT SalaryID FROM SalaryCal_Table WHERE EMPID = ? AND Shift_Month = ? AND shift_year = ?");
+        $stmt_check->bind_param("sii", $empid, $shift_month, $shift_year);
+        $stmt_check->execute();
+        if ($stmt_check->get_result()->num_rows > 0) {
+            throw new Exception("A salary record for this employee for the selected month and year already exists.");
         }
 
-        // --- Handle Save Request ---
-        elseif (isset($_POST['save'])) {
-            $stmt_insert = $conn->prepare(
-                "INSERT INTO SalaryCal_Table (
-                    SalaryID, EMPID, Shift_Month, shift_year, daysWorked, WorkingDays, OverTime, FestivalDays, 
-                    Total_Shift, RatePerDay, HRA_Per_Month, Basic_Per_Month, Total_Per_Month, 
-                    National_Festival_Holidays_Earnings, BasicWages_Earned_PerMonth, HRAEarned_PerMonth, 
-                    Actual_Earnings, Total_Earnings, ESI_Deductions, EPF_deductions, Total_Deductions, 
-                    advances_deductions, NET_Payable, Actual_Paid
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-            );
-            
-            // **FIXED**: Use $_POST values directly as they are passed from the hidden fields
-            $stmt_insert->bind_param(
-                "ssiididddddddddddddddddddd",
-                $_POST['salary_id'], $_POST['empid'], $_POST['shift_month'], $_POST['shift_year'], 
-                $_POST['days_attended'], $_POST['working_days'], $_POST['overtime'], $_POST['festival_days'], 
-                $_POST['total_shift'], $_POST['day_rate'], $_POST['hra_per_month'], $_POST['basic_per_month'], 
-                $_POST['total_per_month'], $_POST['holidays_earnings'], $_POST['basic_earned_per_month'], 
-                $_POST['hra_earned_per_month'], $_POST['actual_earnings'], $_POST['total_earnings'], 
-                $_POST['esi_deductions'], $_POST['epf_deductions'], $_POST['total_deductions'], 
-                $_POST['advances_deductions'], $_POST['net_payable'], $_POST['actual_paid']
-            );
+        // --- Start Calculations ---
+        $working_days = (int)$_POST['working_days'];
+        $days_attended = (float)$_POST['days_attended'];
+        $overtime = (float)$_POST['overtime'];
+        $festival_days = (float)$_POST['festival_days'];
+        $advances_deductions = (float)$_POST['advances_deductions'];
 
-            if ($stmt_insert->execute()) {
-                $message = "Salary for " . $_POST['empid'] . " saved successfully!";
-                $form_data = []; // Clear form after successful save
-            } else {
-                // Throw a more specific error
-                throw new Exception("Database Insert Error: " . $stmt_insert->error);
-            }
+        // Fetch employee details including designation and govt_salary
+        $stmt_emp = $conn->prepare("SELECT e.Name, e.salary, e.salType, w.govt_salary FROM EmployeeBasicDetails e JOIN Wages w ON e.Designation = w.Designation WHERE e.EMPID = ?");
+        $stmt_emp->bind_param("s", $empid);
+        $stmt_emp->execute();
+        $emp_details = $stmt_emp->get_result()->fetch_assoc();
+
+        if (!$emp_details) {
+            throw new Exception("Employee not found or designation not linked correctly.");
+        }
+
+        $salary = (float)$emp_details['salary'];
+        $sal_type = $emp_details['salType'];
+        $total_per_month = (float)$emp_details['govt_salary'];
+
+        // Calculate Day Rate
+        $day_rate = 0;
+        if (strtolower($sal_type) == "daily") {
+            $day_rate = $salary;
+        } elseif (strtolower($sal_type) == "monthly" && $working_days > 0) {
+            $day_rate = $salary / $working_days;
+        }
+
+        // Perform all detailed calculations
+        $hra_per_month = ($total_per_month / 100) * 40;
+        $basic_per_month = ($total_per_month / 100) * 60;
+        $holidays_earnings = ($working_days > 0) ? ($total_per_month / $working_days) * $festival_days : 0;
+        $basic_earned_per_month = ($working_days > 0) ? ($basic_per_month / $working_days) * ($days_attended + $festival_days) : 0;
+        $hra_earned_per_month = ($working_days > 0) ? ($hra_per_month / $working_days) * ($days_attended + $festival_days) : 0;
+        $overtime_earnings = ($working_days > 0) ? ($total_per_month / $working_days) * ($overtime / 4) : 0;
+        
+        $total_shift = $days_attended + $festival_days + ($overtime / 4);
+        $actual_earnings = $day_rate * $total_shift;
+        
+        $total_earnings = $basic_earned_per_month + $hra_earned_per_month + $holidays_earnings + $overtime_earnings;
+
+        $esi_deductions = ($total_earnings / 100) * 0.75;
+        $epf_deductions = ($basic_earned_per_month / 100) * 12;
+        $total_deductions = $advances_deductions + $epf_deductions + $esi_deductions;
+        
+        $net_payable = $total_earnings - $total_deductions;
+        $actual_paid = abs($actual_earnings - $net_payable);
+        
+        $salary_id = "SAL" . substr($shift_year, -2) . str_pad($shift_month, 2, '0', STR_PAD_LEFT) . strtoupper(substr($empid, 0, 4));
+
+        // --- Save to Database ---
+        $stmt_insert = $conn->prepare(
+            "INSERT INTO SalaryCal_Table (
+                SalaryID, EMPID, Shift_Month, shift_year, daysWorked, WorkingDays, OverTime, FestivalDays, 
+                Total_Shift, RatePerDay, HRA_Per_Month, Basic_Per_Month, Total_Per_Month, 
+                Nationa_Festival_Holidays_Earnings, BasicWages_Earned_PerMonth, HRAEarned_PerMonth,overtime_earnings, 
+                Actual_Earnings, Total_Earnings, ESI_Deductions, EPF_deductions, Total_Deductions, 
+                advances_deductions, NET_Payable, Actual_Paid
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?, ?)"
+        );
+        
+        $stmt_insert->bind_param(
+            "ssiiidddddddidddddddddddd",
+            $salary_id, $empid, $shift_month, $shift_year, 
+            $days_attended, $working_days, $overtime, $festival_days, 
+            $total_shift, $day_rate, $hra_per_month, $basic_per_month, 
+            $total_per_month, $holidays_earnings, $basic_earned_per_month, 
+            $hra_earned_per_month,$overtime_earnings, $actual_earnings, $total_earnings, 
+            $esi_deductions, $epf_deductions, $total_deductions, 
+            $advances_deductions, $net_payable, $actual_paid
+        );
+
+        if ($stmt_insert->execute()) {
+            $message = "Salary for " . $empid . " saved successfully!";
+            // Store results for display after successful save
+            $calculated_results = compact(
+                'total_earnings', 'total_deductions', 'net_payable', 'actual_paid'
+            );
+            $form_data = []; // Clear form for next entry
+        } else {
+            throw new Exception("Database Insert Error: " . $stmt_insert->error);
         }
 
     } catch (Exception $e) {
@@ -219,9 +208,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <label for="advances_deductions">Advances/Deductions:</label>
                     <input type="number" step="0.01" name="advances_deductions" id="advances_deductions" value="<?php echo htmlspecialchars($form_data['advances_deductions'] ?? '0'); ?>">
                 </div>
+            </div>
+            
+            <button type="submit" name="calculate_and_save">Calculate & Save Salary</button>
+        </form>
 
-                <!-- Display Calculated Results -->
-                <?php if ($calculated_results): ?>
+        <!-- Display Calculated Results After Save -->
+        <?php if ($calculated_results && !$is_error): ?>
+            <div class="results-container">
+                <h3>Last Saved Salary Details</h3>
+                <div class="form-grid">
                     <div class="form-group">
                         <label>Total Earnings:</label>
                         <input type="text" value="₹<?php echo number_format($calculated_results['total_earnings'], 2); ?>" readonly>
@@ -238,26 +234,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <label>Actual Paid:</label>
                         <input type="text" value="₹<?php echo number_format($calculated_results['actual_paid'], 2); ?>" readonly>
                     </div>
-                <?php endif; ?>
-            </div>
-            
-            <?php if ($calculated_results): ?>
-                <!-- Hidden fields to pass all data to the save action -->
-                <?php foreach ($calculated_results as $key => $value): ?>
-                    <input type="hidden" name="<?php echo $key; ?>" value="<?php echo htmlspecialchars($value); ?>">
-                <?php endforeach; ?>
-                 <?php foreach ($form_data as $key => $value): ?>
-                    <input type="hidden" name="<?php echo $key; ?>" value="<?php echo htmlspecialchars($value); ?>">
-                <?php endforeach; ?>
-                
-                <div class="actions-container">
-                    <button type="submit" name="save">Save Salary</button>
-                    <a href="add_salary.php" class="recalculate-btn">Clear & New Calculation</a>
                 </div>
-            <?php else: ?>
-                <button type="submit" name="calculate">Calculate Salary</button>
-            <?php endif; ?>
-        </form>
+            </div>
+        <?php endif; ?>
     </div>
 </body>
 </html>
