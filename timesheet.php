@@ -113,7 +113,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             
             // **FIXED**: Use $_POST values directly as they are passed from the hidden fields
             $stmt_insert->bind_param(
-                "ssiiidddddddiddddddddddd",
+                "ssiididddddddddddddddddddd",
                 $_POST['salary_id'], $_POST['empid'], $_POST['shift_month'], $_POST['shift_year'], 
                 $_POST['days_attended'], $_POST['working_days'], $_POST['overtime'], $_POST['festival_days'], 
                 $_POST['total_shift'], $_POST['day_rate'], $_POST['hra_per_month'], $_POST['basic_per_month'], 
