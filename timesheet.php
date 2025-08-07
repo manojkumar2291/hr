@@ -1,111 +1,263 @@
 <?php
+// Include the database connection file
+require 'db.php';
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+$employees = [];
+$message = '';
+$is_error = false;
+$calculated_results = null; // To hold calculated data for display
+$form_data = []; // To hold user's input after submission
 
-include 'db.php';
-session_start();
-
-// Allow both employee and supervisor roles
-if (!isset($_SESSION['username']) || !in_array($_SESSION['role'], ['employee', 'supervisor'])) {
-    header("Location: login.php");
-    exit();
+// Fetch all employees to populate the dropdown
+try {
+    $emp_result = $conn->query("SELECT EMPID, Name FROM EmployeeBasicDetails");
+    while ($row = $emp_result->fetch_assoc()) {
+        $employees[] = $row;
+    }
+} catch (Exception $e) {
+    $message = "Error fetching employees: " . $e->getMessage();
+    $is_error = true;
 }
 
-// Handle form submission
+// Check if the form has been submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $employee_id = $_POST['employee_id'];
-    $date = $_POST['date'];
-    $hours = $_POST['hours'];
-    $notes = $_POST['notes'];
+    // Store submitted form data to repopulate the form
+    $form_data = $_POST;
 
-    if (!empty($employee_id) && !empty($date) && !empty($hours)) {
-        $query = "INSERT INTO timesheets (employee_id, date, hours, notes) VALUES (?, ?, ?, ?)";
-        $stmt = $conn->prepare($query);
-        $stmt->bind_param("isis", $employee_id, $date, $hours, $notes);
+    try {
+        // --- Handle Calculation Request ---
+        if (isset($_POST['calculate'])) {
+            $empid = $_POST['empid'];
+            $shift_month = $_POST['shift_month'];
+            $shift_year = $_POST['shift_year'];
+            
+            // Check for existing record
+            $stmt_check = $conn->prepare("SELECT SalaryID FROM SalaryCal_Table WHERE EMPID = ? AND Shift_Month = ? AND shift_year = ?");
+            $stmt_check->bind_param("sii", $empid, $shift_month, $shift_year);
+            $stmt_check->execute();
+            if ($stmt_check->get_result()->num_rows > 0) {
+                throw new Exception("A salary record for this employee for the selected month and year already exists.");
+            }
 
-        if ($stmt->execute()) {
-            $message = "✅ Timesheet submitted successfully.";
-        } else {
-            $message = "❌ Error: " . $conn->error;
+            // --- Start Calculations ---
+            $working_days = (int)$_POST['working_days'];
+            $days_attended = (float)$_POST['days_attended'];
+            $overtime = (float)$_POST['overtime'];
+            $festival_days = (float)$_POST['festival_days'];
+            $advances_deductions = (float)$_POST['advances_deductions'];
+
+            // Fetch employee details including designation
+            $stmt_emp = $conn->prepare("SELECT e.Name, e.salary, e.salType, w.govt_salary FROM EmployeeBasicDetails e JOIN Wages w ON e.Designation = w.Designation WHERE e.EMPID = ?");
+            $stmt_emp->bind_param("s", $empid);
+            $stmt_emp->execute();
+            $emp_details = $stmt_emp->get_result()->fetch_assoc();
+
+            if (!$emp_details) {
+                throw new Exception("Employee not found or designation not linked correctly.");
+            }
+
+            $salary = (float)$emp_details['salary'];
+            $sal_type = $emp_details['salType'];
+            $total_per_month = (float)$emp_details['govt_salary'];
+
+            // Calculate Day Rate
+            $day_rate = 0;
+            if (strtolower($sal_type) == "daily") {
+                $day_rate = $salary;
+            } elseif (strtolower($sal_type) == "monthly" && $working_days > 0) {
+                $day_rate = $salary / $working_days;
+            }
+
+            // Perform all new calculations
+            $hra_per_month = ($total_per_month / 100) * 40;
+            $basic_per_month = ($total_per_month / 100) * 60;
+            $holidays_earnings = ($working_days > 0) ? ($total_per_month / $working_days) * $festival_days : 0;
+            $basic_earned_per_month = ($working_days > 0) ? ($basic_per_month / $working_days) * ($days_attended + $festival_days) : 0;
+            $hra_earned_per_month = ($working_days > 0) ? ($hra_per_month / $working_days) * ($days_attended + $festival_days) : 0;
+            $overtime_earnings = ($working_days > 0) ? ($total_per_month / $working_days) * ($overtime / 4) : 0;
+            
+            $total_shift = $days_attended + $festival_days + ($overtime / 4);
+            $actual_earnings = $day_rate * $total_shift;
+            
+            $total_earnings = $basic_earned_per_month + $hra_earned_per_month + $holidays_earnings + $overtime_earnings;
+
+            $esi_deductions = ($total_earnings / 100) * 0.75;
+            $epf_deductions = ($basic_earned_per_month / 100) * 12;
+            $total_deductions = $advances_deductions + $epf_deductions + $esi_deductions;
+            
+            $net_payable = $total_earnings - $total_deductions;
+            $actual_paid = $actual_earnings - $net_payable; // As per formula
+            
+            $salary_id = "SAL" . substr($shift_year, -2) . str_pad($shift_month, 2, '0', STR_PAD_LEFT) . strtoupper(substr($empid, 0, 4));
+
+            // Store all results for display and saving
+            $calculated_results = compact(
+                'day_rate', 'total_shift', 'total_earnings', 'net_payable', 'salary_id',
+                'hra_per_month', 'basic_per_month', 'total_per_month', 'holidays_earnings',
+                'basic_earned_per_month', 'hra_earned_per_month', 'actual_earnings',
+                'esi_deductions', 'epf_deductions', 'total_deductions', 'actual_paid'
+            );
         }
-    } else {
-        $message = "⚠️ Please fill in all required fields.";
+
+        // --- Handle Save Request ---
+        elseif (isset($_POST['save'])) {
+            $stmt_insert = $conn->prepare(
+                "INSERT INTO SalaryCal_Table (
+                    SalaryID, EMPID, Shift_Month, shift_year, daysWorked, WorkingDays, OverTime, FestivalDays, 
+                    Total_Shift, RatePerDay, HRA_Per_Month, Basic_Per_Month, Total_Per_Month, 
+                    National_Festival_Holidays_Earnings, BasicWages_Earned_PerMonth, HRAEarned_PerMonth, 
+                    Actual_Earnings, Total_Earnings, ESI_Deductions, EPF_deductions, Total_Deductions, 
+                    advances_deductions, NET_Payable, Actual_Paid
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            );
+            
+            // **FIXED**: Use $_POST values directly as they are passed from the hidden fields
+            $stmt_insert->bind_param(
+                "ssiiidddddddiddddddddddd",
+                $_POST['salary_id'], $_POST['empid'], $_POST['shift_month'], $_POST['shift_year'], 
+                $_POST['days_attended'], $_POST['working_days'], $_POST['overtime'], $_POST['festival_days'], 
+                $_POST['total_shift'], $_POST['day_rate'], $_POST['hra_per_month'], $_POST['basic_per_month'], 
+                $_POST['total_per_month'], $_POST['holidays_earnings'], $_POST['basic_earned_per_month'], 
+                $_POST['hra_earned_per_month'], $_POST['actual_earnings'], $_POST['total_earnings'], 
+                $_POST['esi_deductions'], $_POST['epf_deductions'], $_POST['total_deductions'], 
+                $_POST['advances_deductions'], $_POST['net_payable'], $_POST['actual_paid']
+            );
+
+            if ($stmt_insert->execute()) {
+                $message = "Salary for " . $_POST['empid'] . " saved successfully!";
+                $form_data = []; // Clear form after successful save
+            } else {
+                // Throw a more specific error
+                throw new Exception("Database Insert Error: " . $stmt_insert->error);
+            }
+        }
+
+    } catch (Exception $e) {
+        $message = "An error occurred: " . $e->getMessage();
+        $is_error = true;
     }
 }
-
-// Fetch employee list for dropdown
-$employees_query = "SELECT id, name, designation, location FROM employees ORDER BY name ASC";
-$employees_result = $conn->query($employees_query);
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Submit Timesheet</title>
-    <link rel="stylesheet" href="assets/style.css">
+    <meta charset="UTF-8">
+    <title>Add Employee Salary</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h2>Submit Timesheet</h2>
+        <h2>Calculate Employee Salary</h2>
+        
+        <?php if ($message): ?>
+            <p class="message <?php if ($is_error) echo 'error'; ?>">
+                <?php echo htmlspecialchars($message); ?>
+            </p>
+        <?php endif; ?>
 
-        <?php if (isset($message)) echo "<p>$message</p>"; ?>
+        <form action="" method="post">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="empid">Employee:</label>
+                    <select name="empid" id="empid" required>
+                        <option value="">-- Select Employee --</option>
+                        <?php foreach ($employees as $employee): ?>
+                            <option value="<?php echo htmlspecialchars($employee['EMPID']); ?>" <?php echo (isset($form_data['empid']) && $form_data['empid'] == $employee['EMPID']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($employee['EMPID'] . ' - ' . $employee['Name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="shift_month">Month:</label>
+                    <select name="shift_month" id="shift_month" required>
+                        <?php for ($m = 1; $m <= 12; $m++): ?>
+                            <option value="<?php echo $m; ?>" <?php echo (isset($form_data['shift_month']) && $form_data['shift_month'] == $m) ? 'selected' : (($m == date('n')) && !isset($form_data['shift_month']) ? 'selected' : ''); ?>>
+                                <?php echo date('F', mktime(0, 0, 0, $m, 10)); ?>
+                            </option>
+                        <?php endfor; ?>
+                    </select>
+                </div>
 
-        <form method="POST" action="">
-            <label for="employee_name">Employee Name:</label>
-            <select id="employee_name" onchange="fillEmployeeDetails()" required>
-                <option value="">Select Employee</option>
-                <?php while($row = $employee_result->fetch_assoc()) { ?>
-                    <option 
-                        value="<?php echo $row['id']; ?>" 
-                        data-designation="<?php echo $row['designation']; ?>" 
-                        data-department="<?php echo $row['department']; ?>"
-                    >
-                        <?php echo $row['name']; ?>
-                    </option>
-                <?php } ?>
-            </select><br><br>
+                <div class="form-group">
+                    <label for="shift_year">Year:</label>
+                    <select name="shift_year" id="shift_year" required>
+                        <?php 
+                        $current_year = date('Y');
+                        for ($y = $current_year + 1; $y >= $current_year - 5; $y--): 
+                        ?>
+                            <option value="<?php echo $y; ?>" <?php echo (isset($form_data['shift_year']) && $form_data['shift_year'] == $y) ? 'selected' : (($y == $current_year) && !isset($form_data['shift_year']) ? 'selected' : ''); ?>>
+                                <?php echo $y; ?>
+                            </option>
+                        <?php endfor; ?>
+                    </select>
+                </div>
 
-            <label for="employee_id_display">Employee ID:</label>
-            <input type="text" id="employee_id_display" readonly><br><br>
+                <div class="form-group">
+                    <label for="working_days">Working Days in Month:</label>
+                    <input type="number" name="working_days" id="working_days" value="<?php echo htmlspecialchars($form_data['working_days'] ?? ''); ?>" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="days_attended">Days Attended:</label>
+                    <input type="number" step="0.5" name="days_attended" id="days_attended" value="<?php echo htmlspecialchars($form_data['days_attended'] ?? ''); ?>" required>
+                </div>
 
-            <label for="designation_display">Designation:</label>
-            <input type="text" id="designation_display" readonly><br><br>
+                <div class="form-group">
+                    <label for="overtime">Overtime (Hours):</label>
+                    <input type="number" step="0.5" name="overtime" id="overtime" value="<?php echo htmlspecialchars($form_data['overtime'] ?? '0'); ?>">
+                </div>
 
-            <label for="department_display">Department:</label>
-            <input type="text" id="department_display" readonly><br><br>
+                <div class="form-group">
+                    <label for="festival_days">Festival Days:</label>
+                    <input type="number" step="0.5" name="festival_days" id="festival_days" value="<?php echo htmlspecialchars($form_data['festival_days'] ?? '0'); ?>">
+                </div>
 
-            <!-- Hidden field for form submission -->
-            <input type="hidden" id="employee_id" name="employee_id">
+                <div class="form-group">
+                    <label for="advances_deductions">Advances/Deductions:</label>
+                    <input type="number" step="0.01" name="advances_deductions" id="advances_deductions" value="<?php echo htmlspecialchars($form_data['advances_deductions'] ?? '0'); ?>">
+                </div>
 
-            <label for="date">Date:</label>
-            <input type="date" name="date" required><br><br>
-
-            <label for="hours">Hours Worked:</label>
-            <input type="number" name="hours" required><br><br>
-
-            <label for="notes">Notes:</label>
-            <textarea name="notes" placeholder="Notes"></textarea><br><br>
-
-            <button type="submit">Submit</button>
+                <!-- Display Calculated Results -->
+                <?php if ($calculated_results): ?>
+                    <div class="form-group">
+                        <label>Total Earnings:</label>
+                        <input type="text" value="₹<?php echo number_format($calculated_results['total_earnings'], 2); ?>" readonly>
+                    </div>
+                     <div class="form-group">
+                        <label>Total Deductions:</label>
+                        <input type="text" value="₹<?php echo number_format($calculated_results['total_deductions'], 2); ?>" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Net Payable:</label>
+                        <input type="text" value="₹<?php echo number_format($calculated_results['net_payable'], 2); ?>" readonly>
+                    </div>
+                     <div class="form-group">
+                        <label>Actual Paid:</label>
+                        <input type="text" value="₹<?php echo number_format($calculated_results['actual_paid'], 2); ?>" readonly>
+                    </div>
+                <?php endif; ?>
+            </div>
+            
+            <?php if ($calculated_results): ?>
+                <!-- Hidden fields to pass all data to the save action -->
+                <?php foreach ($calculated_results as $key => $value): ?>
+                    <input type="hidden" name="<?php echo $key; ?>" value="<?php echo htmlspecialchars($value); ?>">
+                <?php endforeach; ?>
+                 <?php foreach ($form_data as $key => $value): ?>
+                    <input type="hidden" name="<?php echo $key; ?>" value="<?php echo htmlspecialchars($value); ?>">
+                <?php endforeach; ?>
+                
+                <div class="actions-container">
+                    <button type="submit" name="save">Save Salary</button>
+                    <a href="add_salary.php" class="recalculate-btn">Clear & New Calculation</a>
+                </div>
+            <?php else: ?>
+                <button type="submit" name="calculate">Calculate Salary</button>
+            <?php endif; ?>
         </form>
     </div>
-
-    <script>
-        function fillEmployeeDetails() {
-            var dropdown = document.getElementById("employee_name");
-            var selectedOption = dropdown.options[dropdown.selectedIndex];
-
-            var employeeId = selectedOption.value;
-            var designation = selectedOption.getAttribute("data-designation");
-            var department = selectedOption.getAttribute("data-department");
-
-            document.getElementById("employee_id").value = employeeId;
-            document.getElementById("employee_id_display").value = employeeId;
-            document.getElementById("designation_display").value = designation;
-            document.getElementById("department_display").value = department;
-        }
-    </script>
 </body>
 </html>
-
