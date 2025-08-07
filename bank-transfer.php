@@ -1,9 +1,9 @@
 <?php
-session_start();
-require 'db.php';
+require_once 'header.php';
+require_once 'db.php';
 
 // Check if the user is an admin
-if (!isset($_SESSION['username']) || $_SESSION['role'] != 'admin') {
+if ($_SESSION['role'] != 'admin') {
     header("Location: login.php");
     exit();
 }
@@ -72,84 +72,74 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 ?>
+<h2>Bank Transfer Report</h2>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Generate Bank Transfer File</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="container">
-        <h2>Bank Transfer Report</h2>
-        
-        <?php if ($message): ?>
-            <p class="message <?php if ($is_error) echo 'error'; ?>">
-                <?php echo htmlspecialchars($message); ?>
-            </p>
-        <?php endif; ?>
+<?php if ($message): ?>
+    <p class="message <?php if ($is_error) echo 'error'; ?>">
+        <?php echo htmlspecialchars($message); ?>
+    </p>
+<?php endif; ?>
 
-        <form action="" method="post" class="payroll-form">
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="report_month">Select Month:</label>
-                    <select name="report_month" id="report_month" required>
-                        <?php for ($m = 1; $m <= 12; $m++): ?>
-                            <option value="<?php echo $m; ?>" <?php echo (isset($form_data['report_month']) && $form_data['report_month'] == $m) ? 'selected' : ''; ?>>
-                                <?php echo date('F', mktime(0, 0, 0, $m, 10)); ?>
-                            </option>
-                        <?php endfor; ?>
-                    </select>
-                </div>
+<form action="" method="post" class="payroll-form">
+    <div class="form-grid">
+        <div class="form-group">
+            <label for="report_month">Select Month:</label>
+            <select name="report_month" id="report_month" required>
+                <?php for ($m = 1; $m <= 12; $m++): ?>
+                    <option value="<?php echo $m; ?>" <?php echo (isset($form_data['report_month']) && $form_data['report_month'] == $m) ? 'selected' : ''; ?>>
+                        <?php echo date('F', mktime(0, 0, 0, $m, 10)); ?>
+                    </option>
+                <?php endfor; ?>
+            </select>
+        </div>
 
-                <div class="form-group">
-                    <label for="report_year">Select Year:</label>
-                    <select name="report_year" id="report_year" required>
-                        <?php 
-                        $current_year = date('Y');
-                        for ($y = $current_year + 1; $y >= $current_year - 5; $y--): 
-                        ?>
-                            <option value="<?php echo $y; ?>" <?php echo (isset($form_data['report_year']) && $form_data['report_year'] == $y) ? 'selected' : ''; ?>>
-                                <?php echo $y; ?>
-                            </option>
-                        <?php endfor; ?>
-                    </select>
-                </div>
-            </div>
-            <div class="actions-container">
-                <button type="submit" name="view_report">View Report</button>
-                <button type="submit" name="export_csv">Export to Excel</button>
-            </div>
-        </form>
-
-        <?php if (!empty($report_data)): ?>
-            <div class="report-table-container">
-                <h3>Salary Report for <?php echo date('F', mktime(0,0,0,$_POST['report_month'])) . ' ' . $_POST['report_year']; ?></h3>
-                <table class="report-table">
-                    <thead>
-                        <tr>
-                            <th>EMPID</th>
-                            <th>Name</th>
-                            <th>Account Number</th>
-                            <th>IFSC Code</th>
-                            <th>Net Payable</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($report_data as $record): ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars($record['EMPID']); ?></td>
-                                <td><?php echo htmlspecialchars($record['Name']); ?></td>
-                                <td><?php echo htmlspecialchars($record['bankAccNumber']); ?></td>
-                                <td><?php echo htmlspecialchars($record['IFSC_code']); ?></td>
-                                <td><?php echo number_format($record['NET_Payable'], 2); ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php endif; ?>
+        <div class="form-group">
+            <label for="report_year">Select Year:</label>
+            <select name="report_year" id="report_year" required>
+                <?php
+                $current_year = date('Y');
+                for ($y = $current_year + 1; $y >= $current_year - 5; $y--):
+                ?>
+                    <option value="<?php echo $y; ?>" <?php echo (isset($form_data['report_year']) && $form_data['report_year'] == $y) ? 'selected' : ''; ?>>
+                        <?php echo $y; ?>
+                    </option>
+                <?php endfor; ?>
+            </select>
+        </div>
     </div>
-</body>
-</html>
+    <div class="actions-container">
+        <button type="submit" name="view_report">View Report</button>
+        <button type="submit" name="export_csv">Export to Excel</button>
+    </div>
+</form>
+
+<?php if (!empty($report_data)): ?>
+    <div class="report-table-container">
+        <h3>Salary Report for <?php echo date('F', mktime(0,0,0,$_POST['report_month'])) . ' ' . $_POST['report_year']; ?></h3>
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>EMPID</th>
+                    <th>Name</th>
+                    <th>Account Number</th>
+                    <th>IFSC Code</th>
+                    <th>Net Payable</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($report_data as $record): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($record['EMPID']); ?></td>
+                        <td><?php echo htmlspecialchars($record['Name']); ?></td>
+                        <td><?php echo htmlspecialchars($record['bankAccNumber']); ?></td>
+                        <td><?php echo htmlspecialchars($record['IFSC_code']); ?></td>
+                        <td><?php echo number_format($record['NET_Payable'], 2); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+<?php endif; ?>
+<?php
+require_once 'footer.php';
+?>

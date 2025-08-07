@@ -1,6 +1,6 @@
 <?php
-// Include the database connection file
-require 'db.php';
+require_once 'header.php';
+require_once 'db.php';
 
 $employees = [];
 $message = '';
@@ -127,116 +127,106 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 ?>
+<h2>Calculate Employee Salary</h2>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Add Employee Salary</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="container">
-        <h2>Calculate Employee Salary</h2>
+<?php if ($message): ?>
+    <p class="message <?php if ($is_error) echo 'error'; ?>">
+        <?php echo htmlspecialchars($message); ?>
+    </p>
+<?php endif; ?>
+
+<form action="" method="post">
+    <div class="form-grid">
+        <div class="form-group">
+            <label for="empid">Employee:</label>
+            <select name="empid" id="empid" required>
+                <option value="">-- Select Employee --</option>
+                <?php foreach ($employees as $employee): ?>
+                    <option value="<?php echo htmlspecialchars($employee['EMPID']); ?>" <?php echo (isset($form_data['empid']) && $form_data['empid'] == $employee['EMPID']) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($employee['EMPID'] . ' - ' . $employee['Name']); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
         
-        <?php if ($message): ?>
-            <p class="message <?php if ($is_error) echo 'error'; ?>">
-                <?php echo htmlspecialchars($message); ?>
-            </p>
-        <?php endif; ?>
+        <div class="form-group">
+            <label for="shift_month">Month:</label>
+            <select name="shift_month" id="shift_month" required>
+                <?php for ($m = 1; $m <= 12; $m++): ?>
+                    <option value="<?php echo $m; ?>" <?php echo (isset($form_data['shift_month']) && $form_data['shift_month'] == $m) ? 'selected' : (($m == date('n')) && !isset($form_data['shift_month']) ? 'selected' : ''); ?>>
+                        <?php echo date('F', mktime(0, 0, 0, $m, 10)); ?>
+                    </option>
+                <?php endfor; ?>
+            </select>
+        </div>
 
-        <form action="" method="post">
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="empid">Employee:</label>
-                    <select name="empid" id="empid" required>
-                        <option value="">-- Select Employee --</option>
-                        <?php foreach ($employees as $employee): ?>
-                            <option value="<?php echo htmlspecialchars($employee['EMPID']); ?>" <?php echo (isset($form_data['empid']) && $form_data['empid'] == $employee['EMPID']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($employee['EMPID'] . ' - ' . $employee['Name']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="shift_month">Month:</label>
-                    <select name="shift_month" id="shift_month" required>
-                        <?php for ($m = 1; $m <= 12; $m++): ?>
-                            <option value="<?php echo $m; ?>" <?php echo (isset($form_data['shift_month']) && $form_data['shift_month'] == $m) ? 'selected' : (($m == date('n')) && !isset($form_data['shift_month']) ? 'selected' : ''); ?>>
-                                <?php echo date('F', mktime(0, 0, 0, $m, 10)); ?>
-                            </option>
-                        <?php endfor; ?>
-                    </select>
-                </div>
+        <div class="form-group">
+            <label for="shift_year">Year:</label>
+            <select name="shift_year" id="shift_year" required>
+                <?php
+                $current_year = date('Y');
+                for ($y = $current_year + 1; $y >= $current_year - 5; $y--):
+                ?>
+                    <option value="<?php echo $y; ?>" <?php echo (isset($form_data['shift_year']) && $form_data['shift_year'] == $y) ? 'selected' : (($y == $current_year) && !isset($form_data['shift_year']) ? 'selected' : ''); ?>>
+                        <?php echo $y; ?>
+                    </option>
+                <?php endfor; ?>
+            </select>
+        </div>
 
-                <div class="form-group">
-                    <label for="shift_year">Year:</label>
-                    <select name="shift_year" id="shift_year" required>
-                        <?php 
-                        $current_year = date('Y');
-                        for ($y = $current_year + 1; $y >= $current_year - 5; $y--): 
-                        ?>
-                            <option value="<?php echo $y; ?>" <?php echo (isset($form_data['shift_year']) && $form_data['shift_year'] == $y) ? 'selected' : (($y == $current_year) && !isset($form_data['shift_year']) ? 'selected' : ''); ?>>
-                                <?php echo $y; ?>
-                            </option>
-                        <?php endfor; ?>
-                    </select>
-                </div>
+        <div class="form-group">
+            <label for="working_days">Working Days in Month:</label>
+            <input type="number" name="working_days" id="working_days" value="<?php echo htmlspecialchars($form_data['working_days'] ?? ''); ?>" required>
+        </div>
 
-                <div class="form-group">
-                    <label for="working_days">Working Days in Month:</label>
-                    <input type="number" name="working_days" id="working_days" value="<?php echo htmlspecialchars($form_data['working_days'] ?? ''); ?>" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="days_attended">Days Attended:</label>
-                    <input type="number" step="0.5" name="days_attended" id="days_attended" value="<?php echo htmlspecialchars($form_data['days_attended'] ?? ''); ?>" required>
-                </div>
+        <div class="form-group">
+            <label for="days_attended">Days Attended:</label>
+            <input type="number" step="0.5" name="days_attended" id="days_attended" value="<?php echo htmlspecialchars($form_data['days_attended'] ?? ''); ?>" required>
+        </div>
 
-                <div class="form-group">
-                    <label for="overtime">Overtime (Hours):</label>
-                    <input type="number" step="0.5" name="overtime" id="overtime" value="<?php echo htmlspecialchars($form_data['overtime'] ?? '0'); ?>">
-                </div>
+        <div class="form-group">
+            <label for="overtime">Overtime (Hours):</label>
+            <input type="number" step="0.5" name="overtime" id="overtime" value="<?php echo htmlspecialchars($form_data['overtime'] ?? '0'); ?>">
+        </div>
 
-                <div class="form-group">
-                    <label for="festival_days">Festival Days:</label>
-                    <input type="number" step="0.5" name="festival_days" id="festival_days" value="<?php echo htmlspecialchars($form_data['festival_days'] ?? '0'); ?>">
-                </div>
+        <div class="form-group">
+            <label for="festival_days">Festival Days:</label>
+            <input type="number" step="0.5" name="festival_days" id="festival_days" value="<?php echo htmlspecialchars($form_data['festival_days'] ?? '0'); ?>">
+        </div>
 
-                <div class="form-group">
-                    <label for="advances_deductions">Advances/Deductions:</label>
-                    <input type="number" step="0.01" name="advances_deductions" id="advances_deductions" value="<?php echo htmlspecialchars($form_data['advances_deductions'] ?? '0'); ?>">
-                </div>
-            </div>
-            
-            <button type="submit" name="calculate_and_save">Calculate & Save Salary</button>
-        </form>
-
-        <!-- Display Calculated Results After Save -->
-        <?php if ($calculated_results && !$is_error): ?>
-            <div class="results-container">
-                <h3>Last Saved Salary Details</h3>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Total Earnings:</label>
-                        <input type="text" value="₹<?php echo number_format($calculated_results['total_earnings'], 2); ?>" readonly>
-                    </div>
-                     <div class="form-group">
-                        <label>Total Deductions:</label>
-                        <input type="text" value="₹<?php echo number_format($calculated_results['total_deductions'], 2); ?>" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label>Net Payable:</label>
-                        <input type="text" value="₹<?php echo number_format($calculated_results['net_payable'], 2); ?>" readonly>
-                    </div>
-                     <div class="form-group">
-                        <label>Actual Paid:</label>
-                        <input type="text" value="₹<?php echo number_format($calculated_results['actual_paid'], 2); ?>" readonly>
-                    </div>
-                </div>
-            </div>
-        <?php endif; ?>
+        <div class="form-group">
+            <label for="advances_deductions">Advances/Deductions:</label>
+            <input type="number" step="0.01" name="advances_deductions" id="advances_deductions" value="<?php echo htmlspecialchars($form_data['advances_deductions'] ?? '0'); ?>">
+        </div>
     </div>
-</body>
-</html>
+
+    <button type="submit" name="calculate_and_save">Calculate & Save Salary</button>
+</form>
+
+<!-- Display Calculated Results After Save -->
+<?php if ($calculated_results && !$is_error): ?>
+    <div class="results-container">
+        <h3>Last Saved Salary Details</h3>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Total Earnings:</label>
+                <input type="text" value="₹<?php echo number_format($calculated_results['total_earnings'], 2); ?>" readonly>
+            </div>
+             <div class="form-group">
+                <label>Total Deductions:</label>
+                <input type="text" value="₹<?php echo number_format($calculated_results['total_deductions'], 2); ?>" readonly>
+            </div>
+            <div class="form-group">
+                <label>Net Payable:</label>
+                <input type="text" value="₹<?php echo number_format($calculated_results['net_payable'], 2); ?>" readonly>
+            </div>
+             <div class="form-group">
+                <label>Actual Paid:</label>
+                <input type="text" value="₹<?php echo number_format($calculated_results['actual_paid'], 2); ?>" readonly>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+<?php
+require_once 'footer.php';
+?>
