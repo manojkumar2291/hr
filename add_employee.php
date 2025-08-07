@@ -11,6 +11,16 @@ if ($_SESSION['role'] !== 'admin') {
     die("Access denied. You must be an admin to access this page.");
 }
 
+// Fetch designations from the wages table
+$designations = [];
+$sql_designations = "SELECT DISTINCT Designation FROM wages";
+$result_designations = $conn->query($sql_designations);
+if ($result_designations->num_rows > 0) {
+    while($row = $result_designations->fetch_assoc()) {
+        $designations[] = $row['Designation'];
+    }
+}
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $EMPID = $_POST['EMPID'];
     $Name = $_POST['Name'];
@@ -54,7 +64,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <input type="text" name="Name" id="Name" required><br>
 
             <label for="Designation">Designation:</label>
-            <input type="text" name="Designation" id="Designation"><br>
+            <select name="Designation" id="Designation">
+                <?php foreach ($designations as $designation) { ?>
+                    <option value="<?php echo htmlspecialchars($designation); ?>"><?php echo htmlspecialchars($designation); ?></option>
+                <?php } ?>
+            </select><br>
 
             <label for="salary">Salary:</label>
             <input type="number" name="salary" id="salary"><br>
