@@ -252,10 +252,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div><strong>IFSC Code:</strong> <?php echo htmlspecialchars($payroll_details['IFSC_code']); ?></div>
             </div>
             <div class="payslip-grid">
+                <div class="workdetails">
+                <h4>Work Details</h4>
+                <div class="payslip-item"><span>Days Worked</span><span><?php echo htmlspecialchars($payroll_details['daysWorked']); ?></span></div>
+                <div class="payslip-item"><span>Overtime (Hours)</span><span><?php echo htmlspecialchars($payroll_details['OverTime']); ?></span></div>
+
+            </div>
                 <div class="earnings">
                     <h4>Earnings</h4>
-                    <div class="payslip-item"><span>Basic Wages Earned</span><span><?php echo number_format($payroll_details['BasicWages_Earned_PerMonth'], 2); ?></span></div>
+                    <div class="payslip-item"><span>Basic Wages Earned</span><span><?php echo number_format($payroll_details['BasicWages_Earned_perMonth'], 2); ?></span></div>
                     <div class="payslip-item"><span>HRA Earned</span><span><?php echo number_format($payroll_details['HRAEarned_PerMonth'], 2); ?></span></div>
+                    <div class="payslip-item"> <span>OverTime Earnings</span><span><?php echo number_format($payroll_details['overtime_Earnings'], 2); ?></span></div>
                     <div class="payslip-item"><span>Holiday Earnings</span><span><?php echo number_format($payroll_details['Nationa_Festival_Holidays_Earnings'], 2); ?></span></div>
                     <div class="payslip-item total"><strong>Total Earnings</strong><strong><?php echo number_format($payroll_details['Total_Earnings'], 2); ?></strong></div>
                 </div>

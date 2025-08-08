@@ -86,7 +86,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $net_payable = $total_earnings - $total_deductions;
         $actual_paid = abs($actual_earnings - $net_payable);
         
-        $salary_id = "SAL" . substr($shift_year, -2) . str_pad($shift_month, 2, '0', STR_PAD_LEFT) . strtoupper(substr($empid, 0, 4));
+        $salary_id = "SAL" . substr($shift_year, -2) . str_pad($shift_month, 2, '0', STR_PAD_LEFT). substr(str_shuffle('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 4);
 
         // --- Save to Database ---
         $stmt_insert = $conn->prepare(

@@ -139,7 +139,7 @@ if ($result_all_employees->num_rows > 0) {
         <div class="form-group"><label for="bankAccNumber">Bank Account Number:</label><input type="text" name="bankAccNumber" id="bankAccNumber" value="<?php echo htmlspecialchars($editing_employee['bankAccNumber'] ?? ''); ?>"></div>
         <div class="form-group"><label for="IFSC_code">IFSC Code:</label><input type="text" name="IFSC_code" id="IFSC_code" value="<?php echo htmlspecialchars($editing_employee['IFSC_code'] ?? ''); ?>"></div>
         <div class="form-group"><label for="Branch">Branch:</label><input type="text" name="Branch" id="Branch" value="<?php echo htmlspecialchars($editing_employee['Branch'] ?? ''); ?>"></div>
-        <div class="form-group"><label for="rateperday">Rate Per Day:</label><input type="text" name="rateperday" id="rateperday" value="<?php echo htmlspecialchars($editing_employee['rateperday'] ?? ''); ?>"></div>
+        <!-- <div class="form-group"><label for="rateperday">Rate Per Day:</label><input type="text" name="rateperday" id="rateperday" value="<?php echo htmlspecialchars($editing_employee['rateperday'] ?? ''); ?>"></div> -->
     </div>
     <?php if ($editing_employee): ?>
         <button type="submit" name="update_employee">Update Employee</button>

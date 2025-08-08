@@ -32,12 +32,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-    <div class="container">
-        <h2>Login</h2>
-        <form method="POST">
-            <input type="text" name="username" placeholder="Username" required><br>
-            <input type="password" name="password" placeholder="Password" required><br>
-            <button type="submit">Login</button>
+    <div style="min-height: 10vh; width: 30%; margin: 50px auto; padding: 20px; background-color: #fff; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: flex; flex-direction: column;">
+        <h2 style="text-align:center">Login</h2>
+        <form method="POST" style="display: flex; flex-direction: column;justify-content: center; alignitems: center; margin: 0 auto;">
+            <label for="username" >UserName :</label>
+            <input type="text" name="username" placeholder="Username" required style="width:300px ;margin:5px 0px;"><br>
+            <label for="password">Password :</label>
+            <input type="password" name="password" placeholder="Password" required  style="width:300px ;margin:5px 0px;"><br>
+            <button type="submit" style="width:100%" >Login</button>
         </form>
         <?php if (isset($error)) echo "<p class='error'>$error</p>"; ?>
     </div>
