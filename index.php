@@ -9,6 +9,7 @@ require_once 'header.php';
         <a href="add_employee.php" class="card">Add Employee</a>
         <a href="payroll.php" class="card">Payroll Calculation</a>
         <a href="payslip.php" class="card">Generate Payslip</a>
+        <a href="dashboard.php" class="card">View Employees</a>
         <a href="bank-transfer.php" class="card">Bank Transfer File</a>
     <?php } ?>
     <a href="logout.php" class="card logout">Logout</a>
