@@ -5,6 +5,8 @@ $password = "newpassword";
 $database = "hrapp";
 
 
+
+
 $conn = new mysqli($servername, $username, $password, $database);
 
 if ($conn->connect_error) {

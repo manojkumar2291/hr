@@ -17,7 +17,7 @@ $form_data = $_POST;
 
 // Fetch all employees for the dropdown
 try {
-    $emp_result = $conn->query("SELECT EMPID, Name FROM EmployeeBasicDetails ORDER BY Name ASC");
+    $emp_result = $conn->query("SELECT EMPID, Name FROM employeebasicdetails ORDER BY Name ASC");
     while ($row = $emp_result->fetch_assoc()) {
         $employees[] = $row;
     }
@@ -36,8 +36,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $shift_year = $_POST['shift_year'];
 
             $stmt = $conn->prepare(
-                "SELECT e.Name, e.Designation, e.bankAccNumber, e.IFSC_code, s.* FROM SalaryCal_Table s
-                 JOIN EmployeeBasicDetails e ON s.EMPID = e.EMPID
+                "SELECT e.Name, e.Designation, e.bankAccNumber, e.IFSC_code, s.* FROM salarycal_table s
+                 JOIN employeebasicdetails e ON s.EMPID = e.EMPID
                  WHERE s.EMPID = ? AND s.Shift_Month = ? AND s.shift_year = ?"
             );
             $stmt->bind_param("sii", $empid, $shift_month, $shift_year);
@@ -65,7 +65,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $festival_days = (float)$_POST['FestivalDays'];
             $advances_deductions = (float)$_POST['advances_deductions'];
 
-            $stmt_emp = $conn->prepare("SELECT e.salary, e.salType, w.govt_salary FROM EmployeeBasicDetails e JOIN Wages w ON e.Designation = w.Designation WHERE e.EMPID = ?");
+            $stmt_emp = $conn->prepare("SELECT e.salary, e.salType, w.govt_salary FROM employeebasicdetails e JOIN Wages w ON e.Designation = w.Designation WHERE e.EMPID = ?");
             $stmt_emp->bind_param("s", $empid);
             $stmt_emp->execute();
             $emp_details = $stmt_emp->get_result()->fetch_assoc();

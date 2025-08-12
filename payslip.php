@@ -15,7 +15,7 @@ $form_data = $_POST;
 
 // Fetch all employees for the dropdown
 try {
-    $emp_result = $conn->query("SELECT EMPID, Name FROM EmployeeBasicDetails ORDER BY Name ASC");
+    $emp_result = $conn->query("SELECT EMPID, Name FROM employeebasicdetails ORDER BY Name ASC");
     while ($row = $emp_result->fetch_assoc()) {
         $employees[] = $row;
     }
@@ -32,8 +32,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['generate_payslip'])) {
 
         // Fetch all payslip data by joining the tables
         $stmt = $conn->prepare(
-            "SELECT e.Name, e.Designation, e.bankAccNumber, e.IFSC_code, s.* FROM SalaryCal_Table s
-             JOIN EmployeeBasicDetails e ON s.EMPID = e.EMPID
+            "SELECT e.Name, e.Designation, e.bankAccNumber, e.IFSC_code, s.* FROM salarycal_table s
+             JOIN employeebasicdetails e ON s.EMPID = e.EMPID
              WHERE s.EMPID = ? AND s.Shift_Month = ? AND s.shift_year = ?"
         );
         $stmt->bind_param("sii", $empid, $shift_month, $shift_year);

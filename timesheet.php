@@ -7,10 +7,21 @@ $message = '';
 $is_error = false;
 $calculated_results = null; // To hold calculated data for display
 $form_data = []; // To hold user's input after submission
+function getWorkingDays($year, $month) {
+    $totalDays = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+    $sundays = 0;
+    for ($day = 1; $day <= $totalDays; $day++) {
+        // The 'w' format character returns 0 for Sunday
+        if (date('w', strtotime("$year-$month-$day")) == 0) {
+            $sundays++;
+        }
+    }
+    return $totalDays - $sundays;
+}
 
 // Fetch all employees to populate the dropdown
 try {
-    $emp_result = $conn->query("SELECT EMPID, Name FROM EmployeeBasicDetails");
+    $emp_result = $conn->query("SELECT EMPID, Name FROM employeebasicdetails");
     while ($row = $emp_result->fetch_assoc()) {
         $employees[] = $row;
     }
@@ -30,7 +41,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $shift_year = $_POST['shift_year'];
         
         // --- Check for existing record BEFORE calculating ---
-        $stmt_check = $conn->prepare("SELECT SalaryID FROM SalaryCal_Table WHERE EMPID = ? AND Shift_Month = ? AND shift_year = ?");
+        $stmt_check = $conn->prepare("SELECT SalaryID FROM salarycal_table WHERE EMPID = ? AND Shift_Month = ? AND shift_year = ?");
         $stmt_check->bind_param("sii", $empid, $shift_month, $shift_year);
         $stmt_check->execute();
         if ($stmt_check->get_result()->num_rows > 0) {
@@ -38,14 +49,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         // --- Start Calculations ---
-        $working_days = (int)$_POST['working_days'];
+        $working_days = getWorkingDays($shift_year, $shift_month);
+        $work_location = $_POST['work_location'] ;
         $days_attended = (float)$_POST['days_attended'];
         $overtime = (float)$_POST['overtime'];
         $festival_days = (float)$_POST['festival_days'];
         $advances_deductions = (float)$_POST['advances_deductions'];
 
         // Fetch employee details including designation and govt_salary
-        $stmt_emp = $conn->prepare("SELECT e.Name, e.salary, e.salType, w.govt_salary FROM EmployeeBasicDetails e JOIN Wages w ON e.Designation = w.Designation WHERE e.EMPID = ?");
+        $stmt_emp = $conn->prepare("SELECT e.Name, e.salary, e.salType,e.professionaltax, w.govt_salary FROM employeebasicdetails e JOIN wages w ON e.Designation = w.Designation WHERE e.EMPID = ?");
         $stmt_emp->bind_param("s", $empid);
         $stmt_emp->execute();
         $emp_details = $stmt_emp->get_result()->fetch_assoc();
@@ -57,6 +69,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $salary = (float)$emp_details['salary'];
         $sal_type = $emp_details['salType'];
         $total_per_month = (float)$emp_details['govt_salary'];
+        $professionaltax = (float)$emp_details['professionaltax'];
 
         // Calculate Day Rate
         $day_rate = 0;
@@ -81,7 +94,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         $esi_deductions = ($total_earnings / 100) * 0.75;
         $epf_deductions = ($basic_earned_per_month / 100) * 12;
-        $total_deductions = $advances_deductions + $epf_deductions + $esi_deductions;
+        $total_deductions = $advances_deductions + $epf_deductions + $esi_deductions+$professionaltax;
         
         $net_payable = $total_earnings - $total_deductions;
         $actual_paid = abs($actual_earnings - $net_payable);
@@ -90,19 +103,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         // --- Save to Database ---
         $stmt_insert = $conn->prepare(
-            "INSERT INTO SalaryCal_Table (
-                SalaryID, EMPID, Shift_Month, shift_year, daysWorked, WorkingDays, OverTime, FestivalDays, 
+            "INSERT INTO salarycal_table (
+                SalaryID, EMPID, Shift_Month, shift_year, daysWorked, WorkingDays,working_location, OverTime, FestivalDays, 
                 Total_Shift, RatePerDay, HRA_Per_Month, Basic_Per_Month, Total_Per_Month, 
                 Nationa_Festival_Holidays_Earnings, BasicWages_Earned_PerMonth, HRAEarned_PerMonth,overtime_earnings, 
                 Actual_Earnings, Total_Earnings, ESI_Deductions, EPF_deductions, Total_Deductions, 
                 advances_deductions, NET_Payable, Actual_Paid
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?, ?)"
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?, ?, ?, ?,?, ?)"
         );
         
         $stmt_insert->bind_param(
-            "ssiiidddddddidddddddddddd",
+            "ssiiidsddddddidddddddddddd",
             $salary_id, $empid, $shift_month, $shift_year, 
-            $days_attended, $working_days, $overtime, $festival_days, 
+            $days_attended, $working_days,$work_location, $overtime, $festival_days, 
             $total_shift, $day_rate, $hra_per_month, $basic_per_month, 
             $total_per_month, $holidays_earnings, $basic_earned_per_month, 
             $hra_earned_per_month,$overtime_earnings, $actual_earnings, $total_earnings, 
@@ -176,7 +189,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         <div class="form-group">
             <label for="working_days">Working Days in Month:</label>
-            <input type="number" name="working_days" id="working_days" value="<?php echo htmlspecialchars($form_data['working_days'] ?? ''); ?>" required>
+            <select name="work_location" id="work_location" required>
+                <option value="">-- Select Work Location --</option>
+                <?php
+                // Fetch work locations from a separate table (e.g., worklocations)
+                $locations_result = $conn->query("SELECT id, LocationName FROM worklocations ");
+                while ($loc = $locations_result->fetch_assoc()):
+                    $selected = (isset($form_data['work_location']) && $form_data['work_location'] == $loc['id']) ? 'selected' : '';
+                ?>
+                    <option value="<?php echo htmlspecialchars($loc['id']); ?>" <?php echo $selected; ?>>
+                        <?php echo htmlspecialchars($loc['LocationName']); ?>
+                    </option>
+                <?php endwhile; ?>
+            </select>
         </div>
 
         <div class="form-group">

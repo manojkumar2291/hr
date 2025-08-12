@@ -22,8 +22,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Fetch all salary data for the selected period
         $stmt = $conn->prepare(
             "SELECT e.Name, e.bankAccNumber, e.IFSC_code, s.EMPID, s.NET_Payable 
-             FROM SalaryCal_Table s
-             JOIN EmployeeBasicDetails e ON s.EMPID = e.EMPID
+             FROM salarycal_table s
+             JOIN employeebasicdetails e ON s.EMPID = e.EMPID
              WHERE s.Shift_Month = ? AND s.shift_year = ?
              ORDER BY e.Name ASC"
         );

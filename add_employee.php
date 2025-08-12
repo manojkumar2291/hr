@@ -25,7 +25,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // --- Handle DELETE request ---
     if (isset($_POST['delete_employee'])) {
         $empid_to_delete = $_POST['EMPID'];
-        $stmt = $conn->prepare("DELETE FROM EmployeeBasicDetails WHERE EMPID = ?");
+        $stmt = $conn->prepare("DELETE FROM employeebasicdetails WHERE EMPID = ?");
         $stmt->bind_param("s", $empid_to_delete);
         if ($stmt->execute()) {
             $success = "Employee deleted successfully.";
@@ -47,9 +47,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $IFSC_code = $_POST['IFSC_code'];
         $Branch = $_POST['Branch'];
         $rateperday = $_POST['rateperday'];
+        $professionaltax = $_POST['professionaltax'];
 
-        $stmt = $conn->prepare("UPDATE EmployeeBasicDetails SET Name=?, Designation=?, salary=?, salType=?, joiningDate=?, Esi_Numbers=?, Epf_number=?, bankAccNumber=?, IFSC_code=?, Branch=?, rateperday=? WHERE EMPID=?");
-        $stmt->bind_param("ssisssssssds", $Name, $Designation, $salary, $salType, $joiningDate, $Esi_Numbers, $Epf_number, $bankAccNumber, $IFSC_code, $Branch, $rateperday, $EMPID);
+        $stmt = $conn->prepare("UPDATE EmployeeBasicDetails SET Name=?, Designation=?, salary=?,professionaltax=?, salType=?, joiningDate=?, Esi_Numbers=?, Epf_number=?, bankAccNumber=?, IFSC_code=?, Branch=?, rateperday=? WHERE EMPID=?");
+        $stmt->bind_param("ssidsssssssds", $Name, $Designation, $salary, $professionaltax,$salType, $joiningDate, $Esi_Numbers, $Epf_number, $bankAccNumber, $IFSC_code, $Branch, $rateperday, $EMPID);
         
         if ($stmt->execute()) {
             $success = "Employee updated successfully.";
@@ -70,10 +71,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $bankAccNumber = $_POST['bankAccNumber'];
         $IFSC_code = $_POST['IFSC_code'];
         $Branch = $_POST['Branch'];
-        $rateperday = $_POST['rateperday'];
+        // $rateperday = $_POST['rateperday'];
+        $professionaltax = $_POST['professionaltax'];
 
-        $stmt = $conn->prepare("INSERT INTO employeebasicdetails (EMPID, Name, Designation, salary, salType, joiningDate, Esi_Numbers, Epf_number, bankAccNumber, IFSC_code, Branch, rateperday) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssisssssssd", $EMPID, $Name, $Designation, $salary, $salType, $joiningDate, $Esi_Numbers, $Epf_number, $bankAccNumber, $IFSC_code, $Branch, $rateperday);
+        $stmt = $conn->prepare("INSERT INTO employeebasicdetails (EMPID, Name, Designation, salary,professionaltax, salType, joiningDate, Esi_Numbers, Epf_number, bankAccNumber, IFSC_code, Branch, rateperday) VALUES (?, ?, ?, ?, ?, ?, ?,?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssidsssssssd", $EMPID, $Name, $Designation, $salary,$professionaltax, $salType, $joiningDate, $Esi_Numbers, $Epf_number, $bankAccNumber, $IFSC_code, $Branch, $rateperday);
 
         if ($stmt->execute()) {
             $success = "Employee added successfully.";
@@ -86,7 +88,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 // Handle GET request for editing
 if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_GET['edit_employee'])) {
     $empid_to_edit = $_GET['EMPID'];
-    $stmt = $conn->prepare("SELECT * FROM EmployeeBasicDetails WHERE EMPID = ?");
+    $stmt = $conn->prepare("SELECT * FROM employeebasicdetails WHERE EMPID = ?");
     $stmt->bind_param("s", $empid_to_edit);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -97,7 +99,7 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_GET['edit_employee'])) {
 
 // --- Fetch all employee details for the table ---
 $all_employees = [];
-$sql_all_employees = "SELECT * FROM EmployeeBasicDetails ORDER BY Name ASC";
+$sql_all_employees = "SELECT * FROM employeebasicdetails ORDER BY Name ASC";
 $result_all_employees = $conn->query($sql_all_employees);
 if ($result_all_employees->num_rows > 0) {
     while($row = $result_all_employees->fetch_assoc()) {
@@ -133,6 +135,7 @@ if ($result_all_employees->num_rows > 0) {
                 <option value="Daily" <?php echo (isset($editing_employee) && $editing_employee['salType'] == 'Daily') ? 'selected' : ''; ?>>Daily</option>
             </select>
         </div>
+        <div class="form-group"><label for="professionaltax">professionaltax:</label><input type="number" name="professionaltax" id="professionaltax" value="<?php echo htmlspecialchars($editing_employee['professionaltax'] ?? ''); ?>"></div>
         <div class="form-group"><label for="joiningDate">Joining Date:</label><input type="date" name="joiningDate" id="joiningDate" value="<?php echo htmlspecialchars($editing_employee['joiningDate'] ?? ''); ?>"></div>
         <div class="form-group"><label for="Esi_Numbers">ESI Numbers:</label><input type="text" name="Esi_Numbers" id="Esi_Numbers" value="<?php echo htmlspecialchars($editing_employee['Esi_Numbers'] ?? ''); ?>"></div>
         <div class="form-group"><label for="Epf_number">EPF Number:</label><input type="text" name="Epf_number" id="Epf_number" value="<?php echo htmlspecialchars($editing_employee['Epf_number'] ?? ''); ?>"></div>
