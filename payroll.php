@@ -37,7 +37,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $shift_year = $_POST['shift_year'];
 
             $stmt = $conn->prepare(
-                "SELECT e.Name, e.Designation, e.bankAccNumber, e.IFSC_code, e.salary, s.* FROM SalaryCal_Table s
+                "SELECT e.Name, e.Designation, e.bankAccNumber, e.IFSC_code, e.salary,e.professionaltax, s.* FROM SalaryCal_Table s
                  JOIN EmployeeBasicDetails e ON s.EMPID = e.EMPID
                  WHERE s.EMPID = ? AND s.Shift_Month = ? AND s.shift_year = ?"
             );
@@ -87,7 +87,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $overtime_earnings = ($working_days > 0) ? ($total_per_month / $working_days) * ($overtime / 4) : 0;
             $total_shift = $days_attended + $festival_days + ($overtime / 4);
             $actual_earnings = $day_rate * $total_shift;
-            $total_earnings = $basic_earned_per_month + $hra_earned_per_month + $holidays_earnings + $overtime_earnings;
+            $total_earnings = $basic_earned_per_month + $hra_earned_per_month + $holidays_earnings ;
             $esi_deductions = ($total_earnings / 100) * 0.75;
             $epf_deductions = ($basic_earned_per_month / 100) * 12;
             $total_deductions = $advances_deductions + $epf_deductions + $esi_deductions;
@@ -103,8 +103,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                  NET_Payable = ?, Actual_Paid = ?
                  WHERE SalaryID = ?"
             );
+            // The type string should be "dddddddddddddddddddds" (21 characters)
             $stmt_update->bind_param(
-                "ddddddddiddddddddddds",
+                "dddddddddddddddddddds",
                 $days_attended, $overtime, $festival_days, $advances_deductions,
                 $total_shift, $day_rate, $hra_per_month, $basic_per_month, $total_per_month,
                 $holidays_earnings, $basic_earned_per_month, $hra_earned_per_month, $overtime_earnings,
@@ -115,6 +116,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if ($stmt_update->execute()) {
                 $message = "Payslip updated successfully!";
                 $is_editing = false; // Exit edit mode
+                // To refresh the view with updated data, we set a flag to re-trigger the select query
                 $_POST['generate_payslip'] = true; 
             } else {
                 throw new Exception("Failed to update payslip: " . $stmt_update->error);
@@ -218,7 +220,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <?php if ($payroll_details): ?>
     <div class="container payslip-container">
-        <!-- Screen View -->
         <div class="screen-view">
             <div class="payslip-header">
                 <h3>Payslip for <?php echo date('F Y', mktime(0,0,0,$payroll_details['Shift_Month'], 1, $payroll_details['shift_year'])); ?></h3>
@@ -238,7 +239,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </div>
 
             <?php if ($is_editing): ?>
-                <!-- EDIT FORM -->
                 <form action="" method="post">
                     <input type="hidden" name="SalaryID" value="<?php echo htmlspecialchars($payroll_details['SalaryID']); ?>">
                     <input type="hidden" name="empid" value="<?php echo htmlspecialchars($payroll_details['EMPID']); ?>">
@@ -258,11 +258,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     </div>
                 </form>
             <?php else: ?>
-                <!-- DISPLAY VIEW -->
                 <div class="employee-info">
                     <div><strong>Employee ID:</strong> <?php echo htmlspecialchars($payroll_details['EMPID']); ?></div>
                     <div><strong>Name:</strong> <?php echo htmlspecialchars($payroll_details['Name']); ?></div>
                     <div><strong>Designation:</strong> <?php echo htmlspecialchars($payroll_details['Designation']); ?></div>
+                    <div><strong>Salary:</strong> <?php echo number_format($payroll_details['salary'], 2); ?></div>
                     <div><strong>Bank Acc No:</strong> <?php echo htmlspecialchars($payroll_details['bankAccNumber']); ?></div>
                     <div><strong>IFSC Code:</strong> <?php echo htmlspecialchars($payroll_details['IFSC_code']); ?></div>
                 </div>
@@ -270,31 +270,40 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <div class="workdetails">
                         <h4>Work Details</h4>
                         <div class="payslip-item"><span>Days Worked</span><span><?php echo htmlspecialchars($payroll_details['daysWorked']); ?></span></div>
+                        <div class="payslip-item"><span>Festival Days</span><span><?php echo htmlspecialchars($payroll_details['FestivalDays']); ?></span></div>
                         <div class="payslip-item"><span>Overtime (Hours)</span><span><?php echo htmlspecialchars($payroll_details['OverTime']); ?></span></div>
+                        <div class="payslip-item total"><strong>Total Shifts</strong><strong><?php echo number_format($payroll_details['Total_Shift'], 2); ?></strong></div>
                     </div>
                     <div class="earnings">
-                        <h4>Earnings</h4>
-                        <div class="payslip-item"><span>Basic Wages Earned</span><span><?php echo number_format($payroll_details['BasicWages_Earned_PerMonth'], 2); ?></span></div>
+                        <h4>Earnings (Statutory)</h4>
+                        <div class="payslip-item"><span>Basic Wages Earned</span><span><?php echo number_format($payroll_details['BasicWages_Earned_perMonth'], 2); ?></span></div>
                         <div class="payslip-item"><span>HRA Earned</span><span><?php echo number_format($payroll_details['HRAEarned_PerMonth'], 2); ?></span></div>
-                        <div class="payslip-item"><span>Overtime Earnings</span><span><?php echo number_format($payroll_details['overtime_earnings'], 2); ?></span></div>
-                        <div class="payslip-item"><span>Holiday Earnings</span><span><?php echo number_format($payroll_details['National_Festival_Holidays_Earnings'], 2); ?></span></div>
+                        <div class="payslip-item"><span>Overtime Earnings</span><span><?php echo number_format($payroll_details['overtime_Earnings'], 2); ?></span></div>
+                        <div class="payslip-item"><span>Holiday Earnings</span><span><?php echo number_format($payroll_details['Nationa_Festival_Holidays_Earnings'], 2); ?></span></div>
                         <div class="payslip-item total"><strong>Total Earnings</strong><strong><?php echo number_format($payroll_details['Total_Earnings'], 2); ?></strong></div>
                     </div>
                     <div class="deductions">
                         <h4>Deductions</h4>
                         <div class="payslip-item"><span>ESI (0.75%)</span><span><?php echo number_format($payroll_details['ESI_Deductions'], 2); ?></span></div>
                         <div class="payslip-item"><span>EPF (12%)</span><span><?php echo number_format($payroll_details['EPF_deductions'], 2); ?></span></div>
-                        <div class="payslip-item"><span>Advances</span><span><?php echo htmlspecialchars($payroll_details['advances_deductions']); ?></span></div>
+                        <div class="payslip-item"><span>Advances</span><span><?php echo number_format($payroll_details['advances_deductions'], 2); ?></span></div>
                         <div class="payslip-item total"><strong>Total Deductions</strong><strong><?php echo number_format($payroll_details['Total_Deductions'], 2); ?></strong></div>
+                    </div>
+                    <div class="register-summary">
+                        <h4>Register Summary</h4>
+                        <div class="payslip-item"><span>Rate Per Day</span><span><?php echo number_format($payroll_details['RatePerDay'], 2); ?></span></div>
+                        <div class="payslip-item"><span>Actual Earnings</span><span><?php echo number_format($payroll_details['Actual_Earnings'], 2); ?></span></div>
+                        <div class="payslip-item"><span>Prof. Tax</span><span><?php echo number_format($payroll_details['professionaltax'], 2); ?></span></div>
+                        <div class="payslip-item"><span>Fines</span><span>0.00</span></div>
+                        <div class="payslip-item total"><strong>Balance to Bank</strong><strong><?php echo number_format($payroll_details['Actual_Earnings'] - $payroll_details['Total_Earnings'], 2); ?></strong></div>
                     </div>
                 </div>
                 <div class="payslip-summary">
-                    <strong>Net Payable: ₹<?php echo number_format($payroll_details['NET_Payable'], 2); ?></strong>
+                    <strong>Net Payable (As per Statutory Register): ₹<?php echo number_format($payroll_details['NET_Payable'], 2); ?></strong>
                 </div>
             <?php endif; ?>
         </div>
 
-        <!-- Print View (Separate Tables) -->
         <div class="print-only">
             <h4>Salary Details for <?php echo date('F Y', mktime(0,0,0,$payroll_details['Shift_Month'], 1, $payroll_details['shift_year'])); ?></h4>
             <table class="print-table">
@@ -330,12 +339,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <td><?php echo number_format($payroll_details['Actual_Earnings'], 2); ?></td>
                         <td><?php echo number_format($payroll_details['ESI_Deductions'], 2); ?></td>
                         <td><?php echo number_format($payroll_details['EPF_deductions'], 2); ?></td>
-                        <td>0.00</td> <!-- Placeholder for Professional Tax -->
-                        <td><?php echo number_format($payroll_details['Actual_Earnings'] - $payroll_details['Total_Deductions'], 2); ?></td>
+                        <td>0.00</td> <td><?php echo number_format($payroll_details['Actual_Earnings'] - $payroll_details['Total_Deductions'], 2); ?></td>
                         <td><?php echo number_format($payroll_details['NET_Payable'], 2); ?></td>
                         <td><?php echo number_format($payroll_details['advances_deductions'], 2); ?></td>
-                        <td>0.00</td> <!-- Placeholder for Fines -->
-                        <td><?php echo number_format($payroll_details['Actual_Paid'], 2); ?></td>
+                        <td>0.00</td> <td><?php echo number_format($payroll_details['Actual_Earnings'] - $payroll_details['Total_Earnings'], 2); ?></td>
                         <td><?php echo number_format($payroll_details['Total_Deductions'], 2); ?></td>
                         <td><?php echo number_format($payroll_details['NET_Payable'], 2); ?></td>
                     </tr>
