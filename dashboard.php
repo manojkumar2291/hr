@@ -65,8 +65,8 @@ try {
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h2>HR Dashboard</h2>
+    <div class="container" style="margin-top: 0px;">
+        
         
         <?php if ($message): ?>
             <p class="message <?php if ($is_error) echo 'error'; ?>">

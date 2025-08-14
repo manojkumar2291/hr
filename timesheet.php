@@ -90,7 +90,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $total_shift = $days_attended + $festival_days + ($overtime / 4);
         $actual_earnings = $day_rate * $total_shift;
         
-        $total_earnings = $basic_earned_per_month + $hra_earned_per_month + $holidays_earnings + $overtime_earnings;
+        $total_earnings = $basic_earned_per_month + $hra_earned_per_month + $holidays_earnings ;
 
         $esi_deductions = ($total_earnings / 100) * 0.75;
         $epf_deductions = ($basic_earned_per_month / 100) * 12;

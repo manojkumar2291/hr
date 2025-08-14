@@ -309,22 +309,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <table class="print-table">
                     <thead>
                         <tr>
-                            <th>EMPID</th>
                             <th>Name</th>
-                            <th>Designation</th>
-                            <th>Basic Earned</th>
-                            <th>HRA Earned</th>
-                            <th>Holiday Earnings</th>
-                            <th>Total Earnings</th>
+                           
+                             <th>Salary</th>
+                             <th>shifts</th>
+                             <th>OT Hours</th>
+                             <th>Total Shift</th>
+                             <th>RatePerDay</th>
+                             <th>Actual Earnings</th>
+                             <th>ESI</th>
+                             <th>EPF</th>
+                             <th>Profssional Tax</th>
+                             <th>Actual Payable</th>
+                             <th>Paid As Per Wage Sheet</th>
+                             <th>Advances</th>
+                             <th>Fines</th>
+                             <th>Balance Transfer into Bank</th>
                             <th>Deductions</th>
                             <th>Net Payable</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td><?php echo htmlspecialchars($payroll_details['EMPID']); ?></td>
+                            <!-- <td><?php echo htmlspecialchars($payroll_details['EMPID']); ?></td> -->
                             <td><?php echo htmlspecialchars($payroll_details['Name']); ?></td>
                             <td><?php echo htmlspecialchars($payroll_details['Designation']); ?></td>
+                            <td><?php echo htmlspecialchars($payroll_details['Name'])?></td>
                             <td><?php echo number_format($payroll_details['BasicWages_Earned_perMonth'], 2); ?></td>
                             <td><?php echo number_format($payroll_details['HRAEarned_PerMonth'], 2); ?></td>
                             <td><?php echo number_format($payroll_details['Nationa_Festival_Holidays_Earnings'], 2); ?></td>
