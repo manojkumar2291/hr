@@ -46,11 +46,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $bankAccNumber = $_POST['bankAccNumber'];
         $IFSC_code = $_POST['IFSC_code'];
         $Branch = $_POST['Branch'];
-        $rateperday = $_POST['rateperday'];
+        
         $professionaltax = $_POST['professionaltax'];
+        $permanentaddress= $_POST['permanentaddress'];
+        $temporaryaddress= $_POST['temporaryaddress'];
 
-        $stmt = $conn->prepare("UPDATE EmployeeBasicDetails SET Name=?, Designation=?, salary=?,professionaltax=?, salType=?, joiningDate=?, Esi_Numbers=?, Epf_number=?, bankAccNumber=?, IFSC_code=?, Branch=?, rateperday=? WHERE EMPID=?");
-        $stmt->bind_param("ssidsssssssds", $Name, $Designation, $salary, $professionaltax,$salType, $joiningDate, $Esi_Numbers, $Epf_number, $bankAccNumber, $IFSC_code, $Branch, $rateperday, $EMPID);
+        $stmt = $conn->prepare("UPDATE EmployeeBasicDetails SET Name=?, Designation=?, salary=?,professionaltax=?, salType=?, joiningDate=?, Esi_Numbers=?, Epf_number=?, bankAccNumber=?, IFSC_code=?, Branch=?,permanentaddress=?,Temporaryaddress=? WHERE EMPID=?");
+        $stmt->bind_param("ssidssssssssss", $Name, $Designation, $salary, $professionaltax,$salType, $joiningDate, $Esi_Numbers, $Epf_number, $bankAccNumber, $IFSC_code, $Branch, $permanentaddress,$temporaryaddress,$EMPID);
         
         if ($stmt->execute()) {
             $success = "Employee updated successfully.";
@@ -73,9 +75,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $Branch = $_POST['Branch'];
         // $rateperday = $_POST['rateperday'];
         $professionaltax = $_POST['professionaltax'];
+        $permanentaddress= $_POST['permanentaddress'];
+        $temporaryaddress= $_POST['temporaryaddress'];
 
-        $stmt = $conn->prepare("INSERT INTO employeebasicdetails (EMPID, Name, Designation, salary,professionaltax, salType, joiningDate, Esi_Numbers, Epf_number, bankAccNumber, IFSC_code, Branch, rateperday) VALUES (?, ?, ?, ?, ?, ?, ?,?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssidsssssssd", $EMPID, $Name, $Designation, $salary,$professionaltax, $salType, $joiningDate, $Esi_Numbers, $Epf_number, $bankAccNumber, $IFSC_code, $Branch, $rateperday);
+        $stmt = $conn->prepare("INSERT INTO employeebasicdetails (EMPID, Name, Designation, salary,professionaltax, salType, joiningDate, Esi_Numbers, Epf_number, bankAccNumber, IFSC_code, Branch,permanentaddress,temporaryaddress) VALUES (?,?,?, ?, ?, ?, ?, ?, ?,?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssidsssssssss", $EMPID, $Name, $Designation, $salary,$professionaltax, $salType, $joiningDate, $Esi_Numbers, $Epf_number, $bankAccNumber, $IFSC_code, $Branch, $permanentaddress,$temporaryaddress);
 
         if ($stmt->execute()) {
             $success = "Employee added successfully.";
@@ -142,7 +146,9 @@ if ($result_all_employees->num_rows > 0) {
         <div class="form-group"><label for="bankAccNumber">Bank Account Number:</label><input type="text" name="bankAccNumber" id="bankAccNumber" value="<?php echo htmlspecialchars($editing_employee['bankAccNumber'] ?? ''); ?>"></div>
         <div class="form-group"><label for="IFSC_code">IFSC Code:</label><input type="text" name="IFSC_code" id="IFSC_code" value="<?php echo htmlspecialchars($editing_employee['IFSC_code'] ?? ''); ?>"></div>
         <div class="form-group"><label for="Branch">Branch:</label><input type="text" name="Branch" id="Branch" value="<?php echo htmlspecialchars($editing_employee['Branch'] ?? ''); ?>"></div>
-        <!-- <div class="form-group"><label for="rateperday">Rate Per Day:</label><input type="text" name="rateperday" id="rateperday" value="<?php echo htmlspecialchars($editing_employee['rateperday'] ?? ''); ?>"></div> -->
+        <div class="form-group"><label for="permanentaddress">Permanentaddress:</label><input type="text" name="permanentaddress" id="permanentaddress" value="<?php echo htmlspecialchars($editing_employee['permanentaddress'] ?? ''); ?>"></div>
+        <div class="form-group"><label for="temporaryaddress">temporaryaddress:</label><input type="text" name="temporaryaddress" id="temporaryaddress" value="<?php echo htmlspecialchars($editing_employee['temporaryaddress'] ?? ''); ?>"></div>
+
     </div>
     <?php if ($editing_employee): ?>
         <button type="submit" name="update_employee">Update Employee</button>
