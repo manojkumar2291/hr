@@ -8,14 +8,22 @@ if (!isset($_SESSION['username']) || $_SESSION['role'] != 'admin') {
     exit();
 }
 
+// =================================================================================
+// ADD YOUR COMPANY'S DEBIT ACCOUNT NUMBER HERE
+// =================================================================================
+$debitAccount = '123456789012'; // !! IMPORTANT: CHANGE THIS to your company's account number
+
 // --- HANDLE CSV EXPORT FIRST ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['export_csv'])) {
     try {
         $report_month = $_POST['report_month'];
         $report_year = $_POST['report_year'];
 
+        // NOTE: Please verify these column names (Address1, etc.) match your database table.
         $stmt = $conn->prepare(
-            "SELECT e.Name, e.bankAccNumber, e.IFSC_code, s.EMPID, s.NET_Payable 
+           "SELECT 
+                e.Name, e.bankAccNumber, e.IFSC_code, s.EMPID, s.NET_Payable,
+                e.permanentaddress, e.temporaryaddress
              FROM SalaryCal_Table s
              JOIN EmployeeBasicDetails e ON s.EMPID = e.EMPID
              WHERE s.Shift_Month = ? AND s.shift_year = ?
@@ -38,21 +46,38 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['export_csv'])) {
             
             $output = fopen('php://output', 'w');
             
-            fputcsv($output, ['Employee Name', 'Account Number', 'IFSC Code', 'Amount']);
+             fputcsv($output, [
+                'S.N o.', 'Debit Account No.', 'Amount', 'Beneficiary IFSC', 'Transaction', 
+                'Beneficiary Account', 'Beneficiary Name', 'Beneficiary Address 1', 
+                'Beneficiary Address 2','Payment Details 1', 
+                'Payment Details 2', 'Charge Debit Account No.', 'SMSEmail', 'Mobile no / Email ID'
+            ]);
             
+            $serialNumber = 1;
+            $paymentDetails1 = "SAL " . strtoupper(date('F', mktime(0, 0, 0, $report_month, 1))) . " " . $report_year;
+
             foreach ($report_data as $row) {
                 fputcsv($output, [
-                    $row['Name'],
-                    $row['bankAccNumber'],
-                    $row['IFSC_code'],
-                    $row['NET_Payable']
+                    $serialNumber++,                  // S.N o.
+                    $debitAccount,                    // Debit Account No.
+                    $row['NET_Payable'],              // Amount
+                    $row['IFSC_code'],                // Beneficiary IFSC
+                    'NEFT',                           // Transaction (Static Value)
+                    $row['bankAccNumber'],            // Beneficiary Account
+                    $row['Name'],                     // Beneficiary Name
+                    $row['permanentaddress'] ?? '',           // Beneficiary Address 1
+                    $row['temporaryaddress'] ?? '',           // Beneficiary Address 2
+                    $paymentDetails1,                 // Payment Details 1
+                    '',                               // Payment Details 2 (Empty)
+                    $debitAccount,                    // Charge Debit Account No.
+                    '',                               // SMSEmail (Empty as requested)
+                    ''                                // Mobile no / Email ID (Empty as requested)
                 ]);
             }
             
             fclose($output);
-            exit(); // IMPORTANT: Stop the script here to prevent HTML output
+            exit(); 
         } else {
-             // Redirect back with an error message if there's no data to export
             header("Location: bank_transfer.php?error=No data to export for the selected period.");
             exit();
         }
@@ -65,7 +90,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['export_csv'])) {
 
 
 // --- REGULAR PAGE LOGIC (VIEW REPORT) ---
-require_once 'header.php'; // Now it's safe to include the header
+require_once 'header.php'; 
 
 $report_data = [];
 $message = '';
@@ -77,14 +102,15 @@ if(isset($_GET['error'])) {
     $is_error = true;
 }
 
-// Handle form submission to view the report on the page
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['view_report'])) {
     try {
         $report_month = $_POST['report_month'];
         $report_year = $_POST['report_year'];
 
+        // CHANGED: The query now fetches Address1 for the on-screen view.
         $stmt = $conn->prepare(
-            "SELECT e.Name, e.bankAccNumber, e.IFSC_code, s.EMPID, s.NET_Payable 
+            "SELECT 
+                e.Name, e.bankAccNumber, e.IFSC_code, s.EMPID, s.NET_Payable, e.permanentaddress
              FROM SalaryCal_Table s
              JOIN EmployeeBasicDetails e ON s.EMPID = e.EMPID
              WHERE s.Shift_Month = ? AND s.shift_year = ?
@@ -166,21 +192,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['view_report'])) {
                 <table class="report-table">
                     <thead>
                         <tr>
+                            <th>S.No.</th>
                             <th>EMPID</th>
-                            <th>Name</th>
-                            <th>Account Number</th>
-                            <th>IFSC Code</th>
-                            <th>Net Payable</th>
+                            <th>Beneficiary Name</th>
+                            <th>Amount</th>
+                            <th>Transaction</th>
+                            <th>Payment Details</th>
+                            <th>Address</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($report_data as $record): ?>
+                        <?php 
+                        $sn = 1;
+                        // ADDED: Calculate payment details for the view
+                        $paymentDetailsView = "SAL " . strtoupper(date('F', mktime(0, 0, 0, $_POST['report_month'], 1))) . " " . $_POST['report_year'];
+                        foreach ($report_data as $record): 
+                        ?>
                             <tr>
+                                <td><?php echo $sn++; ?></td>
                                 <td><?php echo htmlspecialchars($record['EMPID']); ?></td>
                                 <td><?php echo htmlspecialchars($record['Name']); ?></td>
-                                <td><?php echo htmlspecialchars($record['bankAccNumber']); ?></td>
-                                <td><?php echo htmlspecialchars($record['IFSC_code']); ?></td>
                                 <td><?php echo number_format($record['NET_Payable'], 2); ?></td>
+                                <td>NEFT</td>
+                                <td><?php echo htmlspecialchars($paymentDetailsView); ?></td>
+                                <td><?php echo htmlspecialchars($record['permanentaddress'] ?? 'N/A'); ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

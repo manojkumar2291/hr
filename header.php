@@ -22,7 +22,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <?php if ($role == 'admin'): ?>
                 <li><a href="add_employee.php" class="<?php echo ($current_page == 'add_employee.php') ? 'active' : ''; ?>">Add Employee</a></li>
                 <li><a href="payroll.php" class="<?php echo ($current_page == 'payroll.php') ? 'active' : ''; ?>">Payroll</a></li>
-                <li><a href="payslip.php" class="<?php echo ($current_page == 'payslip.php') ? 'active' : ''; ?>">Payslip</a></li>
+                <!-- <li><a href="payslip.php" class="<?php echo ($current_page == 'payslip.php') ? 'active' : ''; ?>">Payslip</a></li> -->
                 <li><a href="bank-transfer.php" class="<?php echo ($current_page == 'bank-transfer.php') ? 'active' : ''; ?>">Bank Transfer</a></li>
             <?php else: ?>
                 <li><a href="timesheet.php" class="<?php echo ($current_page == 'timesheet.php') ? 'active' : ''; ?>">Timesheet</a></li>
